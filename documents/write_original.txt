@@ -1,0 +1,282 @@
+1. At booting time:
+The xv6 OS at the booting time sets up the trap table:
+the main() function in main.c has this line:
+tvint();
+
+the function tvinit() is defined in trap.c:
+void
+tvinit(void)
+{
+  int i;
+
+  for(i = 0; i < 256; i++)
+    SETGATE(idt[i], 0, SEG_KCODE<<3, vectors[i], 0);
+  SETGATE(idt[T_SYSCALL], 1, SEG_KCODE<<3, vectors[T_SYSCALL], DPL_USER);
+
+  initlock(&tickslock, "time");
+}
+
+and SETGATE is defined in mmu.h as:
+struct gatedesc {
+  uint off_15_0 : 16;   // low 16 bits of offset in segment
+  uint cs : 16;         // code segment selector
+  uint args : 5;        // # args, 0 for interrupt/trap gates
+  uint rsv1 : 3;        // reserved(should be zero I guess)
+  uint type : 4;        // type(STS_{TG,IG32,TG32})
+  uint s : 1;           // must be 0 (system)
+  uint dpl : 2;         // descriptor(meaning new) privilege level
+  uint p : 1;           // Present
+  uint off_31_16 : 16;  // high bits of offset in segment
+};
+
+// Set up a normal interrupt/trap gate descriptor.
+// - istrap: 1 for a trap (= exception) gate, 0 for an interrupt gate.
+//   interrupt gate clears FL_IF, trap gate leaves FL_IF alone
+// - sel: Code segment selector for interrupt/trap handler
+// - off: Offset in code segment for interrupt/trap handler
+// - dpl: Descriptor Privilege Level -
+//        the privilege level required for software to invoke
+//        this interrupt/trap gate explicitly using an int instruction.
+#define SETGATE(gate, istrap, sel, off, d)                \
+{                                                         \
+  (gate).off_15_0 = (uint)(off) & 0xffff;                \
+  (gate).cs = (sel);                                      \
+  (gate).args = 0;                                        \
+  (gate).rsv1 = 0;                                        \
+  (gate).type = (istrap) ? STS_TG32 : STS_IG32;           \
+  (gate).s = 0;                                           \
+  (gate).dpl = (d);                                       \
+  (gate).p = 1;                                           \
+  (gate).off_31_16 = (uint)(off) >> 16;                  \
+}
+
+As we can see, SETGATE() sets the vector table as the offset f the idt table, therefore created a gate from idt to vector.
+
+Then the function mpmain() in main() in main.c is called, which is defined also in main.c:
+static void
+mpmain(void)
+{
+  cprintf("cpu%d: starting %d\n", cpuid(), cpuid());
+  idtinit();       // load idt register
+  xchg(&(mycpu()->started), 1); // tell startothers() we're up
+  scheduler();     // start running processes
+}
+
+it calls idtinit() function, which is defined in trap.c:
+void
+idtinit(void)
+{
+  lidt(idt, sizeof(idt));
+}
+
+and it calls lidt() in x86.h:
+static inline void
+lidt(struct gatedesc *p, int size)
+{
+  volatile ushort pd[3];
+
+  pd[0] = size-1;
+  pd[1] = (uint)p;
+  pd[2] = (uint)p >> 16;
+
+  asm volatile("lidt (%0)" : : "r" (pd));
+}
+And it tells the hardware exactly where to find the idt table. All jobs at booting time is done.
+
+2.At running time:
+When a program calls write(fd,10,n), it pushes all the arguments to the stack and calls the write function defined in usys.S:
+
+.globl write;
+write:
+  movl $SYS_write, %eax;
+  int $T_SYSCALL;
+  ret
+
+Here, movl passes the value of SYS_write, which is defined as 16 in syscall.h to the register %eax. And int instruction will cause the hardware to raise the privilege level and issues software interrupt in the idt table, and the value of T_SYSCALL, which is defined as 64 in traps.h, goes to the corresponding element in the table. And as descussed before, we created a gate from idt[64] to vectors[64], which is defined in vectors.S:
+.globl vector64
+vector64:
+  pushl $0
+  pushl $64
+  jmp alltraps
+
+We see, it pushes the trap number to the stack and jump to alltraps, which is defined in trapasm.S:
+.globl alltraps
+alltraps:
+  # Build trap frame.
+  pushl %ds
+  pushl %es
+  pushl %fs
+  pushl %gs
+  pushal
+  
+  # Set up data segments.
+  movw $(SEG_KDATA<<3), %ax
+  movw %ax, %ds
+  movw %ax, %es
+
+  # Call trap(tf), where tf=%esp
+  pushl %esp
+  call trap
+  addl $4, %esp
+
+We can see, it first pushes a few registers unto the stack and then sets up data segments, then it pushes the value in %esp register to the stack, and calls trap() function, therefore value in %esp is passed to the function as the parameter, the layout of the trapframe that's passed to trap() function is defined in x86.h:
+struct trapframe {
+  // registers as pushed by pusha
+  uint edi;
+  uint esi;
+  uint ebp;
+  uint oesp;      // useless & ignored
+  uint ebx;
+  uint edx;
+  uint ecx;
+  uint eax;
+
+  // rest of trap frame
+  ushort gs;
+  ushort padding1;
+  ushort fs;
+  ushort padding2;
+  ushort es;
+  ushort padding3;
+  ushort ds;
+  ushort padding4;
+  uint trapno;
+
+  // below here defined by x86 hardware
+  uint err;
+  uint eip;
+  ushort cs;
+  ushort padding5;
+  uint eflags;
+
+  // below here only when crossing rings, such as from user to kernel
+  uint esp;
+  ushort ss;
+  ushort padding6;
+};
+
+Here, trapno is set as 64 by the pushl in vector64, and all the other parameters are stored in esp. The trap function is defined in trap.c:
+void
+trap(struct trapframe *tf)
+{
+  if(tf->trapno == T_SYSCALL){
+    if(myproc()->killed)
+      exit();
+    myproc()->tf = tf;
+    syscall();
+    if(myproc()->killed)
+      exit();
+    return;
+  }
+
+It checks if trapno is 64, and checks if the process is still alive, then it calls syscall() function, which is defined in syscall.c:
+void
+syscall(void)
+{
+  int num;
+  struct proc *curproc = myproc();
+
+  num = curproc->tf->eax;
+  if(num > 0 && num < NELEM(syscalls) && syscalls[num]) {
+    curproc->tf->eax = syscalls[num]();
+  } else {
+    cprintf("%d %s: unknown sys call %d\n",
+            curproc->pid, curproc->name, num);
+    curproc->tf->eax = -1;
+  }
+}
+
+Here it assigns the value in eax, which is SYS_write before, and checks if it's a valid number, then calls syscalls[SYS_write], which is defined in the same file:
+static int (*syscalls[])(void) = {
+[SYS_fork]    sys_fork,
+[SYS_exit]    sys_exit,
+[SYS_wait]    sys_wait,
+[SYS_pipe]    sys_pipe,
+[SYS_read]    sys_read,
+[SYS_kill]    sys_kill,
+[SYS_exec]    sys_exec,
+[SYS_fstat]   sys_fstat,
+[SYS_chdir]   sys_chdir,
+[SYS_dup]     sys_dup,
+[SYS_getpid]  sys_getpid,
+[SYS_sbrk]    sys_sbrk,
+[SYS_sleep]   sys_sleep,
+[SYS_uptime]  sys_uptime,
+[SYS_open]    sys_open,
+[SYS_write]   sys_write,
+[SYS_mknod]   sys_mknod,
+[SYS_unlink]  sys_unlink,
+[SYS_link]    sys_link,
+[SYS_mkdir]   sys_mkdir,
+[SYS_close]   sys_close,
+};
+
+as we can see, the sys_write() function is called, and it's defined in sysfile.c:
+int
+sys_write(void)
+{
+  struct file *f;
+  int n;
+  char *p;
+
+  if(argfd(0, 0, &f) < 0 || argint(2, &n) < 0 || argptr(1, &p, n) < 0)
+    return -1;
+  return filewrite(f, p, n);
+}
+
+Here, in the if statement, argfd is called which is defined in the same file:
+static int
+argfd(int n, int *pfd, struct file **pf)
+{
+  int fd;
+  struct file *f;
+
+  if(argint(n, &fd) < 0)
+    return -1;
+  if(fd < 0 || fd >= NOFILE || (f=myproc()->ofile[fd]) == 0)
+    return -1;
+  if(pfd)
+    *pfd = fd;
+  if(pf)
+    *pf = f;
+  return 0;
+}
+
+And it calls argint():
+int
+argint(int n, int *ip)
+{
+  return fetchint((myproc()->tf->esp) + 4 + 4*n, ip);
+}
+
+int
+fetchint(uint addr, int *ip)
+{
+  struct proc *curproc = myproc();
+
+  if(addr >= curproc->sz || addr+4 > curproc->sz)
+    return -1;
+  *ip = *(int*)(addr);
+  return 0;
+}
+
+As we can see, eventually, the address of tf->esp+4, which points to the original value of fd in the initial call write(fd,10,n). And this value will be assigned to fd variable in argfd(), then the next line in argfd is to check if the value of fd is invalid. Since it's undefined, it's invalid. Therefore argfd() will return -1, which cause sys_write() to return -1. And -1 will be returned to where it's called, so we are back to alltraps in trapasm.S, now the return value is at the head of the stack, the last line of alltrps adjusts the header to the next element in stack, then the program falls through the next function which is trapret:
+# Return falls through to trapret...
+.globl trapret
+trapret:
+  popal
+  popl %gs
+  popl %fs
+  popl %es
+  popl %ds
+  addl $0x8, %esp  # trapno and errcode
+  iret
+
+Here, it pops a few registers from the stack and adjusted the head of the stack back so it points to the return value. Then iret is called, which will lower the privilege level back to user mode and return to the line after int instruction, so it's back to write in the beginning:
+.globl write;
+write:
+  movl $SYS_write, %eax;
+  int $T_SYSCALL;
+  ret
+
+Here we can see it goes to ret, and finally the value in the stack, -1, is returned, which means an exception occured.

@@ -1,0 +1,63 @@
+Design:
+The files I changed to add the system call are:
+proc.c
+proc.h
+syscall.c
+syscall.h
+sysproc.c
+user.h
+user.S
+
+In order to keep track of the number of invocations for each system call for each process, I changed the prototype of proc structure in proc.h, added:
+int cnt[23];                 // count table of system calls
+at line 53,
+
+then I need to initilize all elements of this count table as 0, so I changed allocproc() in proc.c, added:
+  int i;
+  for(i=1;i<23;i++){
+	  p->cnt[i]=0;
+  }
+at line 115-119.
+
+Now I need to add 1 to the corresponding element each time a system call is invoked, so I changed syscall() in syscall.c, added:
+curproc->cnt[num]++;
+at line 141
+
+Then I start to add the system call to retrieve from cnt table,
+I first added the prototype in user.h:
+int getCallCount(int);
+at line 26
+and added the system call number in syscall.h:
+#define SYS_getCallCount  22
+at line 23
+and added defination of this function in usys.S:
+SYSCALL(getCallCount)
+at line 32
+
+So SYS_getCallCount will be passed as a system call number to num in syscall.c, thus I added a line in syscalls[] table in syscall.c:
+[SYS_getCallCount] sys_count,
+at line 130
+so when SYS_getCallCount is passed to syscalls[](), sys_count() will be invoked. Therefore all that's left to do is to define sys_count(), so I added in syscall.c:
+extern int sys_count(void);
+at line 106
+and define sys_count() in sysproc.c:
+int
+sys_count(void)
+{
+	int n;
+	if(argint(0,&n)<0){
+		return -1;
+	}else if(n<1||n>22){
+		return -1;
+	}else{
+		return myproc()->cnt[n];
+	}
+}
+from line 93-104.
+it first try to retrieve the argument that's passed to the function getCallCount() and put it in n, if it fails, return -1 to show an error, then check n to see if it's a valid system call number, if not, return -1 to show an error. If all safe, retrieve the number stored in the cnt[] array of current process.
+
+Manual:
+Declaration:
+	int getCallCount(int syscall_num);
+Return the number of invocations of the system call corresponding to syscall_num within current process, or -1 if syscall_num is not a valid system call number.
+Valid numbers:1-22 or as defined in syscall.h
