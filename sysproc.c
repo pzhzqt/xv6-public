@@ -89,3 +89,16 @@ sys_uptime(void)
   release(&tickslock);
   return xticks;
 }
+
+int
+sys_count(void)
+{
+	int n;
+	if(argint(0,&n)<0){
+		return -1;
+	}else if(n<1||n>22){
+		return -1;
+	}else{
+		return myproc()->cnt[n];
+	}
+}

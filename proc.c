@@ -6,6 +6,7 @@
 #include "x86.h"
 #include "proc.h"
 #include "spinlock.h"
+#include "syscall.h"
 
 struct {
   struct spinlock lock;
@@ -111,6 +112,11 @@ found:
   p->context = (struct context*)sp;
   memset(p->context, 0, sizeof *p->context);
   p->context->eip = (uint)forkret;
+
+  int i;
+  for(i=1;i<23;i++){
+	  p->cnt[i]=0;
+  }
 
   return p;
 }
