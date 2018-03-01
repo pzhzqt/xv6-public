@@ -1,0 +1,36 @@
+test.c is the test program. The result is as below:
+$ test
+hello world!
+SYS_write is invoked 13 time(s) by printf(1,"hello world!\n")
+input a random string (not too long please): abc
+SYS_read is invoked 1 time(s) by read(0,buf,256)
+SYS_read is invoked 0 time(s) by strcpy(x,buf)
+SYS_write is invoked 0 time(s) by strcpy(x,buf)
+hello world!
+SYS_write is invoked 1 time(s) by write(1,"hello world!\n",13)
+SYS_fork is invoked 0 time(s) by child process
+SYS_fork is invoked 1 time(s) by parent process
+In total, we invoked getCallCount 10 time(s) in current process
+
+Explain the result:
+the test program contains several test cases:
+1. printf    line:7-8
+It prints "hello world!\n" to stdout, then call getCallCount(SYS_write) and print the result.
+13 is the length of the string "hello world!\n", which shows that printf() will invoke SYS_write for each character.
+
+2. read      line:10-13
+It creates buf[256] as a buffer to read to, then ask the user to input a string to stdin, then calls read(0,buf,256) to read from stdin and store it in buf. Then print the number of SYS_read invocations. 1 is the right result since it's invoked once.
+
+3. strcpy    line:15-21
+It first invokes getCallCount(SYS_read) and getCallCount(SYS_write) to get the current invocation number before strcpy(), then it calls strcpy() to copy from buf to x, then invokes getCallCount(SYS_read) and getCallCount(SYS_write) again and minus the invocation number before, we get the invocation caused by strcpy() and print the result, which is 0 and 0. In fact, strcpy() doesn't invoke any system call.
+
+4. write     line:23-26
+It first invokes getCallCount(SYS_write) to get the current invocation number before write(), then it calls write(1,"hello world!\n",13) to write to stdout, the it invokes getCallCount(SYS_write) again, minus the invocation number before, and print the result. 1 shows SYS_write is only invoked once here. Comparing this result to test case 1, we see that printf() calls write() at each character, which makes printf() more expensive.
+
+5. fork      line:28-33
+(This is not in the requirement, but I saw fork() drawn on the description, so I think I should probably add this too)
+It calls fork(), and invokes getCallCount(SYS_fork) in both parent and child process and print the result. As we can see, the result is 1 for parent process, and 0 for child process, which means we successfully counted the number of invocations within a process instead of counting it globally.
+
+6. getCallCount    line:35-36
+(Professor answered my email and said it should allow passing itself as an argument)
+The result 10 is the total number of getCallCount() invocations in the parent process including the last invocation.
