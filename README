@@ -22,4 +22,4 @@ when xv6 booted, run "test"
 
 Design is in documents/part2/design.txt, which contains the information of the design and files we changed and the manual of the system call.
 
-Test result is in test.txt, which contains pasted code and test result, and our explanation of why those are good test cases.
+Test result is in documents/part2/test.txt, which contains pasted code and test result, and our explanation of why those are good test cases.
