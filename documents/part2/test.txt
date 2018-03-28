@@ -1,0 +1,49 @@
+Program is test.c, code is as below:
+#include "types.h"
+#include "user.h"
+#include "fcntl.h"
+#include "syscall.h"
+
+int main(void){
+	myMemory();
+	char *arr1=malloc(4096*sizeof(char));
+	arr1[0]='0';
+	myMemory();
+	char *arr2=malloc(1024*4096*sizeof(char));
+	arr2[0]='0';
+	myMemory();
+	free(arr2);
+	char *arr3=malloc(1024*4096*sizeof(char));
+	arr3[0]='0';
+	myMemory();
+	free(arr1);
+	free(arr3);
+	char *arr4=malloc(1024*1024*1024*sizeof(char));
+	arr4[0]='0';
+	myMemory();
+	exit();
+}
+
+Result:
+$ test
+number of total pages: 65539
+number of user accessible and writable pages: 2
+number of total pages: 65547
+number of user accessible and writable pages: 10
+number of total pages: 66572
+number of user accessible and writable pages: 1035
+number of total pages: 66572
+number of user accessible and writable pages: 1035
+allocuvm out of memory
+number of total pages: 66572
+number of user accessible and writable pages: 1035
+
+
+Explain:
+1. We first ran myMemory() to get the initial page information, then allocated 4096 bytes (size of 1 page) of memory and called myMemory() again. It shows the number of user pages becomes 10, which means it allocates more pages than needed if required memory is small, resulting in a lot of internal fragmentation.
+
+2. We then allocated 1024*4096 bytes (size of 1024 pages) of memory and called myMemory() again. It shows the number of user pages becomes 1035, and since 1035-10=1025, which is almost just as many as 1024, therefore the internal fragmentation is small and it saves memory.
+
+3. We then freed the 1024*4096 bytes memory and allocated the same size again, then called myMemory(). It shows the number of user pages stays as 1035, which means freed memory can be reused for future allocation.
+
+4. We then tried to allocate 1024*1024*1024 bytes (1GB) of memory, and the result is as expected. 1GB is too much it prints "allocuvm out of memory" and the number of user pages stays as 1035. This shows xv6 only allows very small memory for user program.
