@@ -1,3 +1,5 @@
+(Qitian Zeng: A20324028)(Deman Yang: A20395988)
+
 Design of system call:
 
 Since for each process, it can already access its own page directory table by calling its own attribute pgdir, we don't need to change any memory management.

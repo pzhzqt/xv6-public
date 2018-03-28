@@ -92,6 +92,7 @@ sys_uptime(void)
 
 //print the number of pages allocated
 //return 0 on success
+//(Qitian Zeng: A20324028)(Deman Yang: A20395988)
 int
 sys_mem(void)
 {

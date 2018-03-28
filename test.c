@@ -1,3 +1,4 @@
+//(Qitian Zeng: A20324028)(Deman Yang: A20395988)
 #include "types.h"
 #include "user.h"
 #include "fcntl.h"
@@ -12,6 +13,7 @@ int main(void){
 	arr2[0]='0';
 	myMemory();
 	free(arr2);
+	myMemory();
 	char *arr3=malloc(1024*4096*sizeof(char));
 	arr3[0]='0';
 	myMemory();
