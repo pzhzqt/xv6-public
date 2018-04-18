@@ -669,3 +669,23 @@ nameiparent(char *path, char *name)
 {
   return namex(path, 1, name);
 }
+
+int
+inodeWalk(void)
+{
+	uint dev=myproc()->cwd->dev;
+	int inum;
+	struct buf *bp;
+	struct dinode *dip;
+
+	for(inum=1; inum<sb.ninodes; inum++){
+		bp = bread(dev, IBLOCK(inum, sb));
+		dip = (struct dinode*)bp->data + inum%IPB;
+		if(dip->type!=0){
+			cprintf("inode: %d\n",inum);
+		}
+		brelse(bp);
+	}
+
+	return 0;
+}

@@ -443,3 +443,10 @@ sys_pipe(void)
   fd[1] = fd1;
   return 0;
 }
+
+//inodeTBwalker
+int
+sys_iwalk(void)
+{
+	return inodeWalk();
+}

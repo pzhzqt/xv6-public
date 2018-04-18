@@ -70,7 +70,7 @@ directoryWalker(char *path, int *root)
       if(name[0]=='.'){
     	  *root=0;
       }
-      printf(1, "%s %d %d %d\n", name, st.type, st.ino, st.size);
+      printf(1, "name: %s, inode: %d\n", name, st.ino);
       if(st.type==T_DIR && name[0]!='.'){
     	  directoryWalker(buf,root);
       }
