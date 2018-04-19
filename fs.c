@@ -671,7 +671,7 @@ nameiparent(char *path, char *name)
 }
 
 int
-inodeWalk(void)
+inodeWalk(short *inode)
 {
 	uint dev=myproc()->cwd->dev;
 	int inum;
@@ -683,6 +683,7 @@ inodeWalk(void)
 		dip = (struct dinode*)bp->data + inum%IPB;
 		if(dip->type!=0){
 			cprintf("inode: %d\n",inum);
+			inode[inum]=1;
 		}
 		brelse(bp);
 	}

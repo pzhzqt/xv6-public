@@ -448,5 +448,7 @@ sys_pipe(void)
 int
 sys_iwalk(void)
 {
-	return inodeWalk();
+	int addr;
+	argint(0,&addr);
+	return inodeWalk((short *)addr);
 }

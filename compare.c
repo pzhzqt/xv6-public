@@ -85,15 +85,30 @@ directoryWalker(char *path, int *root, short *inode)
 int
 main(int argc, char *argv[])
 {
-  int root=1;
-  short inode[NINODE+1]={0};
+	if(argc >= 2){
+		printf(2,"too many arguments\n");
+		exit();
+	}
+	int root=1;
+	short inode_dw[NINODE+1]={0};
+	short inode_iw[NINODE+1]={0};
 
-  if(argc < 2){
-	  directoryWalker(".",&root,inode);;
-  }else if(argc>2){
-	  printf(2,"too many arguments\n");
-  }else{
-	  directoryWalker(argv[1],&root,inode);
-  }
-  exit();
+	directoryWalker(".",&root,inode_dw);
+	iwalk(inode_iw);
+
+	short same=1;
+	for (int i=1;i<NINODE;i++){
+		if (inode_dw[i]==1 && inode_iw[i]==0){
+			printf(1,"directoryWalker finds inode %d, but inodeTBWalker doesn't\n",i);
+			same=0;
+		}else if (inode_dw[i]==0 && inode_iw[i]==1){
+			printf(1,"inodeTBWalker finds inode %d, but directoryWalker doesn't\n",i);
+			same=0;
+		}
+	}
+	if (same==1){
+		printf(1,"Two walkers find same inodes.\n");
+	}
+
+	exit();
 }
