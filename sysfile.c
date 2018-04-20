@@ -452,3 +452,10 @@ sys_iwalk(void)
 	argint(0,&addr);
 	return inodeWalk((short *)addr);
 }
+
+//directoryEraser
+int
+sys_dirErase(void)
+{
+	return dErase();
+}

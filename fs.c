@@ -690,3 +690,38 @@ inodeWalk(short *inode)
 
 	return 0;
 }
+
+int
+dErase(void)
+{
+	uint dev=myproc()->cwd->dev;
+	int inum;
+	struct buf *bp;
+	struct inode *ip;
+	struct dinode *dip;
+
+	for(inum=2; inum<sb.ninodes; inum++){//skipping inum=1 cuz it's root directory
+		bp = bread(dev, IBLOCK(inum, sb));
+		dip = (struct dinode*)bp->data + inum%IPB;
+		if(dip->type==T_DIR){
+			cprintf("damaging inode: %d\n",inum);
+			dip->type=0;
+			dip->size=0;
+			for (int i=0;i<=NDIRECT;i++){
+				dip->addrs[i]=1;
+			}
+			for(ip = &icache.inode[0]; ip < &icache.inode[NINODE]; ip++){//check if already cached
+				if (ip->inum==inum){
+					ip->type=0;
+					ip->size=0;
+					for (int i=0;i<=NDIRECT;i++){
+						ip->addrs[i]=1;
+					}
+				}
+			}
+		}
+		brelse(bp);
+	}
+
+	return 0;
+}
