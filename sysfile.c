@@ -453,29 +453,30 @@ sys_iwalk(void)
 	return inodeWalk((short *)addr);
 }
 
-//directoryEraser
+//directory Eraser
 int
 sys_dirErase(void)
 {
 	char *path;
-	begin_op();
 	if(argstr(0, &path) < 0){
-		end_op();
 		return -1;
 	}
-	return dErase(path);
+	begin_op();
+	int ret=dErase(path);
+	end_op();
+	return ret;
 }
 
+//directory Recover
 int
 sys_recDir(void){
-	begin_op();
 	char* path;//path that are damaged
 	int* inum;//inums that are not accessible
 	int num_inum;//denote size of inum[]
 	if(argstr(0, &path)<0||argint(1,(int *)&inum)<0||argint(2,&num_inum)<0){
-		end_op();
 		return -1;
 	}
+	begin_op();
 	struct inode *dp,*ip;
 	char name[DIRSIZ];
 	dp=nameiparent(path,name);
@@ -483,4 +484,37 @@ sys_recDir(void){
 	recoverDir(dp,ip,inum,num_inum);
 	end_op();
 	return 0;
+}
+
+//type damage
+int
+sys_dtype(void){
+	char *path;
+	if(argstr(0,&path)<0){
+		return -1;
+	}
+	struct inode *ip;
+	if((ip=namei(path))==0){
+		return -1;
+	}
+	begin_op();
+	ilock(ip);
+	if(ip->type==T_DIR){
+		ip->type=T_FILE;
+	}else if(ip->type==T_FILE){
+		ip->type=T_DIR;
+	}
+	iupdate(ip);
+	iunlockput(ip);
+	end_op();
+	return 0;
+}
+
+//type recover
+int
+sys_recType(void){
+	begin_op();
+	int ret=recoverType();
+	end_op();
+	return ret;
 }

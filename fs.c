@@ -710,18 +710,12 @@ dErase(char *path)
 	}else{
 		cprintf("Damaging %s\n",path);
 	}
-/*	ip->size=0;
-	for(int i=0;i<=NDIRECT;i++){
-		ip->addrs[i]=0;
-	}
-	iupdate(ip);*/
 	itrunc(ip);
 	iunlockput(ip);
-	end_op();
 	return 0;
 }
 
-//recover if only one directory is damaged.
+//recover one damaged directory.
 void
 recoverDir(struct inode* dp,struct inode* ip,int *inum,int num_inum){
 	ilock(ip);
@@ -736,4 +730,37 @@ recoverDir(struct inode* dp,struct inode* ip,int *inum,int num_inum){
 	}
 	iunlockput(dp);
 	iunlockput(ip);
+}
+
+//recover damaged type
+int
+recoverType(){
+	struct buf* bp;
+	struct inode* ip;
+	struct dinode* dip;
+	for(int inum=1;inum<sb.ninodes;inum++){
+		bp = bread(ROOTDEV, IBLOCK(inum, sb));
+		dip = (struct dinode*)bp->data + inum%IPB;
+		brelse(bp);
+		if(dip->type!=0 && dip->size>0){
+			ip=iget(ROOTDEV,inum);
+			ilock(ip);
+			_Bool damaged=0;
+			struct dirent de;
+			for(int i=0;i<2;i++){
+				readi(ip, (char*)&de, i*sizeof(de), sizeof(de));
+				if((de.name[0]!='.'&&ip->type==T_DIR)||(de.name[0]=='.'&&ip->type==T_FILE)){
+					damaged=1;
+					break;
+				}
+			}
+			if (damaged){
+				(ip->type==T_DIR)?(ip->type=T_FILE):(ip->type=T_DIR);
+				iupdate(ip);
+				cprintf("inum %d recoverd.\n",ip->inum);
+			}
+			iunlockput(ip);
+		}
+	}
+	return 0;
 }

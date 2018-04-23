@@ -180,6 +180,8 @@ UPROGS=\
 	_erase\
 	_test\
 	_recoverDir\
+	_damagetype\
+	_recoverType\
 
 fs.img: mkfs README $(UPROGS)
 	./mkfs fs.img README $(UPROGS)
@@ -256,6 +258,8 @@ EXTRA=\
 	erase.c\
 	test.c\
 	recoverDir.c\
+	damagetype.c\
+	recoverType.c\
 	README dot-bochsrc *.pl toc.* runoff runoff1 runoff.list\
 	.gdbinit.tmpl gdbutil\
 

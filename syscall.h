@@ -23,3 +23,5 @@
 #define SYS_iwalk  22
 #define SYS_dirErase 23
 #define SYS_recDir 24
+#define SYS_dtype  25
+#define SYS_recType 26

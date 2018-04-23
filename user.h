@@ -26,6 +26,8 @@ int uptime(void);
 int iwalk(short*);
 int dirErase(char*);
 int recDir(char*,int*,int);
+int dtype(char*);
+int recType(void);
 
 // ulib.c
 int stat(char*, struct stat*);

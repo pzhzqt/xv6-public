@@ -55,6 +55,7 @@ int             writei(struct inode*, char*, uint, uint);
 int				inodeWalk(short*);
 int				dErase(char*);
 void			recoverDir(struct inode*,struct inode*,int*,int);
+int				recoverType(void);
 // ide.c
 void            ideinit(void);
 void            ideintr(void);
