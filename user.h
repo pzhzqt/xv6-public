@@ -24,7 +24,8 @@ char* sbrk(int);
 int sleep(int);
 int uptime(void);
 int iwalk(short*);
-int dirErase(void);
+int dirErase(char*);
+int recDir(char*,int*,int);
 
 // ulib.c
 int stat(char*, struct stat*);

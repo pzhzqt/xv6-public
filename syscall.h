@@ -22,3 +22,4 @@
 #define SYS_close  21
 #define SYS_iwalk  22
 #define SYS_dirErase 23
+#define SYS_recDir 24

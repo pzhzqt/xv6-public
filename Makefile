@@ -177,8 +177,9 @@ UPROGS=\
 	_directoryWalker\
 	_inodeTBWalker\
 	_compare\
-	_eraseTest\
+	_erase\
 	_test\
+	_recoverDir\
 
 fs.img: mkfs README $(UPROGS)
 	./mkfs fs.img README $(UPROGS)
@@ -252,8 +253,9 @@ EXTRA=\
        	directoryWalker.c\
 	inodeTBWalker.c\
 	compare.c\
-	eraseTest.c\
+	erase.c\
 	test.c\
+	recoverDir.c\
 	README dot-bochsrc *.pl toc.* runoff runoff1 runoff.list\
 	.gdbinit.tmpl gdbutil\
 

@@ -105,6 +105,7 @@ extern int sys_write(void);
 extern int sys_uptime(void);
 extern int sys_iwalk(void);
 extern int sys_dirErase(void);
+extern int sys_recDir(void);
 
 static int (*syscalls[])(void) = {
 [SYS_fork]    sys_fork,
@@ -130,6 +131,7 @@ static int (*syscalls[])(void) = {
 [SYS_close]   sys_close,
 [SYS_iwalk]   sys_iwalk,
 [SYS_dirErase]sys_dirErase,
+[SYS_recDir]  sys_recDir,
 };
 
 void

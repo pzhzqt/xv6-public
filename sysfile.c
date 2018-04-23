@@ -457,5 +457,30 @@ sys_iwalk(void)
 int
 sys_dirErase(void)
 {
-	return dErase();
+	char *path;
+	begin_op();
+	if(argstr(0, &path) < 0){
+		end_op();
+		return -1;
+	}
+	return dErase(path);
+}
+
+int
+sys_recDir(void){
+	begin_op();
+	char* path;//path that are damaged
+	int* inum;//inums that are not accessible
+	int num_inum;//denote size of inum[]
+	if(argstr(0, &path)<0||argint(1,(int *)&inum)<0||argint(2,&num_inum)<0){
+		end_op();
+		return -1;
+	}
+	struct inode *dp,*ip;
+	char name[DIRSIZ];
+	dp=nameiparent(path,name);
+	ip=namei(path);
+	recoverDir(dp,ip,inum,num_inum);
+	end_op();
+	return 0;
 }

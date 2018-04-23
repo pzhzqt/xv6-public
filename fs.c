@@ -670,6 +670,7 @@ nameiparent(char *path, char *name)
   return namex(path, 1, name);
 }
 
+//inode table walker
 int
 inodeWalk(short *inode)
 {
@@ -691,37 +692,48 @@ inodeWalk(short *inode)
 	return 0;
 }
 
+//directory eraser
 int
-dErase(void)
+dErase(char *path)
 {
-	uint dev=myproc()->cwd->dev;
-	int inum;
-	struct buf *bp;
-	struct inode *ip;
-	struct dinode *dip;
-
-	for(inum=2; inum<sb.ninodes; inum++){//skipping inum=1 cuz it's root directory
-		bp = bread(dev, IBLOCK(inum, sb));
-		dip = (struct dinode*)bp->data + inum%IPB;
-		if(dip->type==T_DIR){
-			cprintf("damaging inode: %d\n",inum);
-			dip->type=0;
-			dip->size=0;
-			for (int i=0;i<=NDIRECT;i++){
-				dip->addrs[i]=1;
-			}
-			for(ip = &icache.inode[0]; ip < &icache.inode[NINODE]; ip++){//check if already cached
-				if (ip->inum==inum){
-					ip->type=0;
-					ip->size=0;
-					for (int i=0;i<=NDIRECT;i++){
-						ip->addrs[i]=1;
-					}
-				}
-			}
-		}
-		brelse(bp);
+	struct inode *ip=namei(path);
+	ilock(ip);
+	if(ip->inum==1){
+		cprintf("Damaging root directory is not allowed.\n");
+		iunlock(ip);
+		return -1;
 	}
-
+	if(ip->type!=T_DIR){
+		cprintf("%s is not a directory\n",path);
+		iunlock(ip);
+		return -1;
+	}else{
+		cprintf("Damaging %s\n",path);
+	}
+/*	ip->size=0;
+	for(int i=0;i<=NDIRECT;i++){
+		ip->addrs[i]=0;
+	}
+	iupdate(ip);*/
+	itrunc(ip);
+	iunlockput(ip);
+	end_op();
 	return 0;
+}
+
+//recover if only one directory is damaged.
+void
+recoverDir(struct inode* dp,struct inode* ip,int *inum,int num_inum){
+	ilock(ip);
+	ilock(dp);
+	dirlink(ip,".",ip->inum);
+	dirlink(ip,"..",dp->inum);
+	for(int i=0;i<num_inum;i++){
+		char name[6]="file";
+		name[4]=(char)(i+49);
+		name[5]=0;
+		dirlink(ip,name,inum[i]);
+	}
+	iunlockput(dp);
+	iunlockput(ip);
 }
