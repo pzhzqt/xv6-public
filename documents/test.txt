@@ -1,0 +1,213 @@
+First if there is fs.img. Remove it, to make sure the file system starts with default.
+(start xv6 from linux)
+First check default files
+$ls
+.              1 1 512
+..             1 1 512
+README         2 2 2392
+cat            2 3 13804
+echo           2 4 12808
+forktest       2 5 8252
+grep           2 6 15672
+init           2 7 13388
+kill           2 8 12856
+ln             2 9 12756
+ls             2 10 14948
+mkdir          2 11 12944
+rm             2 12 12924
+sh             2 13 23404
+stressfs       2 14 13592
+usertests      2 15 56516
+wc             2 16 14332
+zombie         2 17 12588
+directoryWalke 2 18 15332 (name can show at most 14 bytes, decided by xv6)
+inodeTBWalker  2 19 12664
+compare        2 20 15988
+erase          2 21 12892
+test           2 22 12544
+recoverDir     2 23 16852
+damagetype     2 24 13068
+recoverType    2 25 12800
+console        3 26 0
+
+test is a program that just prints "test test\n"
+$test
+test test
+
+Now we create files and folders
+$mkdir dir1 dir2 dir1/dir3
+$cat test>dir1/test
+$echo "1234">dir1/number
+
+Now the structure is
+dir1->dir3->(empty)
+      test
+      number
+
+dir2->(empty)
+
+Testing start:
+
+$directoryWalker
+name: .             , inode: 1
+name: README        , inode: 2
+name: cat           , inode: 3
+name: echo          , inode: 4
+name: forktest      , inode: 5
+name: grep          , inode: 6
+name: init          , inode: 7
+name: kill          , inode: 8
+name: ln            , inode: 9
+name: ls            , inode: 10
+name: mkdir         , inode: 11
+name: rm            , inode: 12
+name: sh            , inode: 13
+name: stressfs      , inode: 14
+name: usertests     , inode: 15
+name: wc            , inode: 16
+name: zombie        , inode: 17
+name: directoryWalke, inode: 18
+name: inodeTBWalker , inode: 19
+name: compare       , inode: 20
+name: erase         , inode: 21
+name: test          , inode: 22
+name: recoverDir    , inode: 23
+name: damagetype    , inode: 24
+name: recoverType   , inode: 25
+name: console       , inode: 26
+name: dir1          , inode: 27
+name: dir3          , inode: 29
+name: test          , inode: 30
+name: number        , inode: 31
+name: dir2          , inode: 28
+
+(directoryWalker successful)
+$inodeTBWalker
+inode: 1
+inode: 2
+inode: 3
+inode: 4
+inode: 5
+inode: 6
+inode: 7
+inode: 8
+inode: 9
+inode: 10
+inode: 11
+inode: 12
+inode: 13
+inode: 14
+inode: 15
+inode: 16
+inode: 17
+inode: 18
+inode: 19
+inode: 20
+inode: 21
+inode: 22
+inode: 23
+inode: 24
+inode: 25
+inode: 26
+inode: 27
+inode: 28
+inode: 29
+inode: 30
+inode: 31
+(inodeTBWalker successful)
+
+$compare
+......(omitting redundant information, same below)
+Two walkers find same inodes.
+
+$erase dir1
+Damaging dir1
+(dir1 erased)
+
+$compare
+......
+inodeTBWalker finds inode 29, but directoryWalker doesn't
+inodeTBWalker finds inode 30, but directoryWalker doesn't
+inodeTBWalker finds inode 31, but directoryWalker doesn't
+(29,30,31 are orphaned)
+
+$recoverDir
+......
+inodeTBWalker finds inode 29, but directoryWalker doesn't
+inodeTBWalker finds inode 30, but directoryWalker doesn't
+inodeTBWalker finds inode 31, but directoryWalker doesn't
+Recovering ./dir1.
+Recovery successful.
+......
+Recovery finished.
+(dir1 is recovered.)
+
+$compare
+......
+Two walkers find same inodes.
+(29,30,31 are reachable again)
+
+$ls dir1
+.              1 27 80
+..             1 1 512
+file1          1 29 32
+file2          2 30 12544
+file3          2 31 7
+(files can be found, but names are erased so can never be recovered)
+
+$dir1/file2
+test test
+$cat dir1/file3
+"1234"
+(executable works the same way as before, text file contains the same information.)
+
+$damagetype test dir2 dir1/file2
+test damaged.
+dir2 damaged.
+dir1/file2 damaged.
+
+$ls
+......
+test           1 22 12544
+......
+dir2           2 28 32
+$ls dir1
+$ls dir1
+......
+file2          1 30 12544
+......
+(see type changed)
+
+$ ls test
+lapicid 1: panic: incorrect blockno
+ 80102345 80102547 80100183 801017c7 80105378 80104bc9 80105d45 80105b5f 0 0
+(ls leads to panic. need to terminate and restart.)
+
+$recoverType
+inum 22 recoverd.
+inum 28 recoverd.
+inum 30 recoverd.
+Recover finished.
+
+$ls
+......
+test           2 22 12544
+......
+dir2           1 28 32
+
+$ls dir1
+......
+file2          2 30 12544
+......
+(type recovered)
+
+$test
+test test
+(works correctly)
+=======================================================
+exception cases test:
+$erase
+need more arguments.
+$damagetype
+need more argument.
+
